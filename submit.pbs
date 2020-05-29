@@ -1,0 +1,31 @@
+#!/bin/bash
+#PBS -N big2
+#PBS -l nodes=3:ppn=24,walltime=4:00:00,mem=64GB
+#PBS -q short-24core
+#PBS -o log_out.txt
+#PBS -e log_err.txt
+#PBS -V
+
+module load shared
+module load maui
+module load torque
+module load intel-stack
+module load matlab
+
+cd $PBS_O_WORKDIR
+export OMP_NUM_THREADS=$PBS_NUM_PPN
+
+echo "$PBS_NUM_NODES nodes with $PBS_NUM_PPN processors each." > log.txt
+date >> log.txt
+
+make clean &>> log.txt
+mpirun -n 1 make -j &>> log.txt
+
+export HOSTS=`sort -u $PBS_NODEFILE | paste -s -d,`
+mpirun -hosts $HOSTS -perhost 1 -genv OMP_NUM_THREADS $PBS_NUM_PPN bin/jmp &>> log.txt
+
+cd results/
+mpirun -n 1 matlab -nojvm -nodesktop -r "toMatlab; loadSim; loadEvents; exit" &>> ../log.txt
+
+date >> ../log.txt
+echo "End." &>> ../log.txt
